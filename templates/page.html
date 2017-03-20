@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+
+
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+	<title>{{ page.title }}</title>
+	<link rel="stylesheet" href="{{ url_for('static', filename='normalize.css') }}">
+	<link rel="stylesheet" href="{{ url_for('static', filename='kiss.css') }}">
+
+
+
+</head>
+
+<body>
+
+<div style="max-width: 40rem;">
+    <div style="margin: auto;">
+    
+        <h2>
+            {{ page.title }}
+        </h2>
+
+        {% for n in navigation.children %}
+            <div style="float: left; margin: 5px 20px 5px 20px;">
+                <a href="/{{ n }}">{{ n }}</a>
+            </div>
+        {% endfor %}
+
+        <div style="clear: both;"></div>
+        <hr>
+        <br>
+        
+            {% for c in subnavigation.children %}
+                <div style="float: left; margin: 5px 20px 5px 20px;">
+                    <a style="font-size: 3rem"  href="/{{ path }}/{{ c }}">{{ c }}</a>
+                </div>
+            {% endfor %}
+
+        <div style="clear: both;"></div>
+        <hr>
+        <br>
+
+        {{ content|safe }} 
+
+    </div>
+</div>
+
+
+
+
+
