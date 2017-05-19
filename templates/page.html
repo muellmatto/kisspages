@@ -7,9 +7,10 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-	<title>{{ page.title }}</title>
+	<title>{{ content.title }}</title>
 	<link rel="stylesheet" href="{{ url_for('static', filename='normalize.css') }}">
 	<link rel="stylesheet" href="{{ url_for('static', filename='kiss.css') }}">
+    <link rel="shortcut icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
 
 
 
@@ -21,12 +22,12 @@
     <div style="margin: auto;">
     
         <h2>
-            {{ page.title }}
+            {{ content.title }}
         </h2>
 
-        {% for n in navigation.children %}
+        {% for n in navigation %}
             <div style="float: left; margin: 5px 20px 5px 20px;">
-                <a href="/{{ n }}">{{ n }}</a>
+                <a href="{{ n.url }}">{{ n.name }}</a>
             </div>
         {% endfor %}
 
@@ -34,9 +35,9 @@
         <hr>
         <br>
         
-            {% for c in subnavigation.children %}
+            {% for c in subnavigation %}
                 <div style="float: left; margin: 5px 20px 5px 20px;">
-                    <a style="font-size: 3rem"  href="/{{ path }}/{{ c }}">{{ c }}</a>
+                    <a style="font-size: 0.8rem"  href="/{{ path }}/{{ c.url }}">{{ c.name }}</a>
                 </div>
             {% endfor %}
 
@@ -44,7 +45,7 @@
         <hr>
         <br>
 
-        {{ content|safe }} 
+        {{ content.html|safe }} 
 
     </div>
 </div>
