@@ -1,48 +1,14 @@
 #!/usr/bin/env python3
 
 from flask import render_template, Flask
-from os import walk, listdir
-from os.path import realpath, isfile, isdir, dirname, join, relpath
+from os import listdir
+from os.path import realpath, isdir, dirname, join
 from markdown import markdown
 from collections import OrderedDict
 
 working_path = dirname(realpath(__file__)) + '/content'
 
 app = Flask(__name__)
-
-# TODO
-# first page muss besser gerutet werden
-
-def load_pages_into_dict():
-    page_dict = {
-            relpath(path, working_path) : 
-                {'children': child_dirs, 'path': path}
-                for path, child_dirs, child_files in walk(working_path)
-                }
-    return page_dict
-
-page_dict = load_pages_into_dict()
-print(page_dict.keys)
-
-# alles in den ram!!!! XD
-def load_content_into_dict():
-    content_dict = {}
-    for title in page_dict:
-        if title is  '.':
-            first_child = page_dict['.']['children'][0]
-            file_path = page_dict[first_child]['path'] + '/index.txt'
-        else:
-            file_path = page_dict[title]['path'] + '/index.txt'
-        try:
-            with open(file_path) as pageContent:
-                page_dict[title]['title'] = pageContent.readline()[7:]
-                content_dict[title] = pageContent.read()[9:]
-        except:
-            pass
-            # just go on, there is no page!
-    return content_dict
-
-content_dict = load_content_into_dict()
 
 def build_page_content(path):
     file_path = join(working_path, path, 'index.txt')
