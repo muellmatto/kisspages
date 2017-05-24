@@ -1,6 +1,0 @@
-Title: Hier Gibt es noch eine Liste
-Content: 
-
-- blah
-- blub
-- bler

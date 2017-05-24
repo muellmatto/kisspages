@@ -1,17 +1,25 @@
 #!/usr/bin/env python3
 
-from flask import render_template, Flask
 from os import listdir
-from os.path import realpath, isdir, dirname, join
-from markdown import markdown
-from collections import OrderedDict
+from os.path import realpath, relpath, isdir, dirname, join
 
-working_path = dirname(realpath(__file__)) + '/content'
+from flask import render_template, Flask
+from markdown import markdown
+
+WORKING_PATH = dirname(realpath(__file__))
+CONTENT_PATH = join(WORKING_PATH, 'content')
+PAGES_PATH = join(CONTENT_PATH, 'pages')
+WORKS_PATH = join(CONTENT_PATH, 'works')
 
 app = Flask(__name__)
 
-def build_page_content(path):
-    file_path = join(working_path, path, 'index.txt')
+# -------------------------------------------
+
+def build_page_content(path, only_title=False):
+    '''
+    returns a dict with keys "title" and "html"
+    '''
+    file_path = join(PAGES_PATH, path, 'index.txt')
     with open(file_path) as file_content:
         page_title = file_content.readline()[7:]
         html_content = markdown(file_content.read()[9:])
@@ -20,34 +28,69 @@ def build_page_content(path):
 
 
 def build_navigation(path):
+    ''' 
+    Returns a list of dicts, with keys "url" and "name"
+    '''
     navigation = []
-    path = join('content',path)
-    pages_folders = [folder for folder in listdir(path) if isdir(join(path, folder)) ]
-    for folder in pages_folders:
+    path = join(PAGES_PATH, path)
+    sub_folders = [folder for folder in listdir(path) if isdir(join(path, folder)) ]
+    for folder in sub_folders:
         with open(join(path, folder, 'index.txt')) as file_content:
             page_title = file_content.readline()[7:]
-        navigation.append({ 'url': '/'+folder, 'name': page_title})
+        url = '/' + relpath(join(path ,folder) , PAGES_PATH)
+        navigation.append({ 'url': url, 'name': page_title})
     return navigation
 
 
-# we need to get the subnavigation....
+def build_backlinks(path):
+    '''
+    Returns a list of links pointing back to the  root
+    '''
+    def append_backlink(path):
+        with open( join(PAGES_PATH, path, 'index.txt')) as file_content:
+            page_title = file_content.readline()[7:]
+        return {'url': '/' + path, 'name': page_title}
+    backlinks = []
+    backlinks.append(append_backlink(path))
+    while len( path.rsplit(sep ='/', maxsplit=1) ) > 1:
+        path = path.rsplit(sep ='/', maxsplit = 1)[0]
+        backlinks.append(append_backlink(path))
+    backlinks.reverse()
+    return backlinks
+
+
+# -------------------------------------------
+
+
+# WORKS // TODO
+@app.route('/works', defaults={'path': ''}, strict_slashes=False)
+@app.route('/works/<path>', strict_slashes = False)
+def work(path):
+    return 'works: ' + path
+
+
+# PAGES
 @app.route('/', defaults={'path': ''}, strict_slashes=False)
 @app.route('/<path:path>', strict_slashes=False)
 def page(path):
-    if path == '':
-        # load first Page
-        path = [folder for folder in listdir('content') if isdir(join('content', folder)) ][0]
     navigation = build_navigation('')
-    subnavigation = build_navigation(path)
+    backlinks = build_backlinks(path)
     try:
-        content = build_page_content(path),
-        return render_template('page.html', 
-                                        content=content[0],  # WTF [0] ??????
-                                        navigation=navigation,
-                                        subnavigation=subnavigation,
-                                        path=path)
+        subnavigation = build_navigation(path)
+        content = build_page_content(path)
     except:
-        return "404"
+        try:
+            path = [folder for folder in listdir(PAGES_PATH) if isdir(join(PAGES_PATH, folder)) ][0]
+            subnavigation = build_navigation(path)
+            content = build_page_content(path)
+        except:
+            return "404"
+    return render_template('page.html', 
+                            content = content,
+                            navigation = navigation,
+                            subnavigation = subnavigation,
+                            path = path,
+                            backlinks = backlinks)
 
 
 if __name__ == '__main__':
