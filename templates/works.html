@@ -4,7 +4,7 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>{{ content.title }}</title>
+        <title>WORKS</title>
         <link rel="stylesheet" href="{{ url_for('static', filename='normalize.css') }}">
         <link rel="stylesheet" href="{{ url_for('static', filename='kiss.css') }}">
         <link rel="shortcut icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
@@ -71,11 +71,13 @@
 
                 <div style="clear: both;"></div>
                 <br>
-                <h2>
-                    {{ content.title }}
-                </h2>
-
-                {{ content.html|safe }} 
+                {% for work in works %}
+                    <a href="{{ work.url }}">
+                        <h2>
+                            {{ work.title}}                        
+                        </h2>
+                    </a>
+                {% endfor %}
 
                 <br>
         </div>
