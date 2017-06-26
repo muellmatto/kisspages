@@ -2,3 +2,16 @@
 img {
     max-width: 100%
 }
+.blue, .blue::before {
+    color: blue;
+}
+.green, .green::before {
+    color: green;
+}
+.red, .red::before {
+    color: red;
+}
+
+.marked::before {
+    background-color: yellow;
+}

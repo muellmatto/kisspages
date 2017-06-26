@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="de">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>EDIT</title>
+        <link rel="stylesheet" href="{{ url_for('static', filename='normalize.css') }}">
+        <link rel="stylesheet" href="{{ url_for('static', filename='simplemde.min.css') }}">
+        <link rel="stylesheet" href="{{ url_for('static', filename='font-awesome.min.css') }}">
+        <link rel="stylesheet" href="{{ url_for('static', filename='kiss.css') }}">
+        <script src="{{ url_for('static', filename='simplemde.min.js') }}"></script>
+        <link rel="shortcut icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+        <style>
+            body {
+                margin: 0.5rem;
+            }
+        </style>
+    </head>
+
+    <body>
+        <div style="max-width: 40rem; margin: auto;">
+            <form method="POST" onsubmit="update_textarea()">
+                <label> Title
+                    <input type="text" name="title" value="{{ content.title }}">
+                </label>
+                <br>
+                <label> Tags
+                    <input type="text" name="tags" value="{{ content.tags }}">
+                </label>
+                <br>
+                <label> Date
+                    <input type="text" name="date" value="{{ content.date }}">
+                </label>
+                <br>
+                <label> Short
+                    <input type="text" name="short" value="{{ content.short }}">
+                </label>
+                <br>
+                <textarea id='markdown_textarea' name="markdown">{{ content.markdown_content }}</textarea>
+                <input type="submit">
+            </form>
+        </div>
+        <script>
+            function color_font(editor, color) {
+                var text;
+                text = editor.codemirror.getSelection();
+                start_text = '<span class="'+color+'">';
+                end_text = '</span>';
+                text = start_text + text + end_text;
+                editor.codemirror.replaceSelection(text);
+            }
+            var simplemde = new SimpleMDE({
+                spellChecker: false,
+                autoDownloadFontAwesome: false,
+                toolbar: [
+                    "bold",
+                    "italic",
+                    "strikethrough",
+                    "heading",
+                    "|",
+                    "code",
+                    "quote",
+                    "unordered-list",
+                    "ordered-list",
+                    "|",
+                    "link",
+                    "image",
+                    "table",
+                    "horizontal-rule",
+                    "|",
+                    "guide",
+                    {
+                        name: "blue",
+                        action: function blue_font(editor) {
+                            color_font(editor, "blue");
+                        },
+                        className: "fa fa-font blue",
+                        title: "blauer font"
+                    },
+                    {
+                        name: "green",
+                        action: function green_font(editor) {
+                            color_font(editor, "green");
+                        },
+                        className: "fa fa-font green",
+                        title: "grüner font"
+                    },
+                    {
+                        name: "red",
+                        action: function red_font(editor) {
+                            color_font(editor, "red");
+                        },
+                        className: "fa fa-font red",
+                        title: "roter font"
+                    },
+                    {
+                        name: "mark",
+                        action: function mark_font(editor) {
+                            var text;
+                            text = editor.codemirror.getSelection();
+                            start_text = '<mark>';
+                            end_text = '</mark>';
+                            text = start_text + text + end_text;
+                            editor.codemirror.replaceSelection(text);
+                        },
+                        className: "fa fa-font marked",
+                        title: "marker"
+                    },
+                    ]
+            });
+            function update_textarea() {
+                var textarea = document.getElementById('markdown_textarea');
+                textarea.innerHTML = simplemed.value();
+            }
+        </script>
+    </body>
+</html>
