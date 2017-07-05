@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 
 from configparser import ConfigParser
-from os import listdir
+from os import listdir, walk
 from os.path import realpath, relpath, isdir, isfile, dirname, join, splitext, split
 from sys import exit
 
-from flask import render_template, Flask, send_from_directory, abort, redirect, url_for
-from markdown import markdown
-
+from flask import render_template, Flask, send_from_directory, abort, redirect, request, url_for
+import markdown
 # -----------------------------------------------------
 
 app = Flask(__name__)
@@ -38,7 +37,6 @@ try:
     KISS_PORT = int(kiss_config['KISS']['port'])
     ALLOWED_EXTENSIONS = set(map(str.strip, kiss_config['KISS']['allowed_extensions'].split(',')))
     ALLOWED_EXTENSIONS.discard('')
-    print(Name, Password)
 except:
     print('please check configfile: ', KISS_CONFIG_PATH)
     exit(1)
@@ -48,59 +46,85 @@ except:
 # page and work functions
 # -----------------------------------------------------
 
-def build_content(path, content_type='page'):
+def _build_content(path, content_type='page'):
     '''
     returns a dict with keys:
-    "title", "html", "tags", "short" and "date"
+    "title", "html", "tags", "short", "path", "markdown_content" and "date"
     '''
+    if content_type == 'page':
+        PARENT_PATH = PAGES_PATH
+        url = join('/', path)
+    elif content_type == 'work':
+        PARENT_PATH = WORKS_PATH
+        url = join('/works', path)
+    file_path = join(PARENT_PATH, path, 'index.txt')
+    print(file_path)
+    with open(file_path) as file_content:
+        page_title = file_content.readline()[7:]
+        page_tags = file_content.readline()[6:]
+        #page_tags = {tag.strip('\n').strip(' ') for tag in page_tags.split(',')}
+        date = file_content.readline()[6:]
+        short = file_content.readline()[7:]
+        markdown_content = file_content.read()
+        html_content = markdown.markdown(markdown_content, ['markdown.extensions.extra'])
+    return {'title': page_title, 'html': html_content, 'tags': page_tags, 'date': date, 'short': short, 'url': url, 'path': path, 'markdown_content': markdown_content}
+
+
+# temporary caching ... 
+ALL_CONTENT = {}
+def build_content(path, content_type='page'):
+    global ALL_CONTENT
+    if not path in ALL_CONTENT:
+        print('caching', path)
+        ALL_CONTENT[path] = _build_content(path, content_type)
+    else:
+        print('from cache:', path)
+    return ALL_CONTENT[path]
+
+def set_content(path, content, content_type='page', new_path=None):
     if content_type == 'page':
         PARENT_PATH = PAGES_PATH
     elif content_type == 'work':
         PARENT_PATH = WORKS_PATH
     file_path = join(PARENT_PATH, path, 'index.txt')
-    with open(file_path) as file_content:
-        page_title = file_content.readline()[7:]
-        if content_type == 'works':
-            page_tags = file_content.readline()[6:]
-            page_tags = {tag.strip('\n').strip(' ') for tag in page_tags.split(',')}
-            date = file_content.readline()[6:]
-            short = file_content.readline()[7:]
-        else:
-            page_tags = set()
-            date = ''
-            short = ''
-        html_content = markdown(file_content.read())
-    return {'title': page_title, 'html': html_content, 'tags': page_tags, 'date': date, 'short': short}
+    with open(file_path, mode='w') as file_content:
+        file_content.write('Title: ' + content['title'] + '\n')
+        file_content.write('TAGS: ' + ','.join(content['tags']) + '\n')
+        file_content.write('DATE: ' + content['date'] + '\n')
+        file_content.write('SHORT: ' + content['short'] + '\n')
+        file_content.writelines(content['markdown'])
+    # temp hack until pyinotify...:
+    global ALL_CONTENT
+    ALL_CONTENT.pop(path)
 
 
-def get_all_works():
+def _get_all_works():
     '''
     Return a dict with keys "list_of_works" and "set_of_tags"
-    each element of "list_of_works" is a dict with keys:
-    "title"(str), "html"(str/html), "tags"(set) and "url"
+    each element of "list_of_works" is a dict build from build_content():
     '''
     all_works = []
     all_tags = set()
     for folder in sorted(listdir(WORKS_PATH)):
-        try:
-            with open(join(WORKS_PATH, folder, 'index.txt')) as file_content:
-                page_title = file_content.readline()[7:]
-                print(page_title)
-                page_tags = file_content.readline()[6:]
-                page_tags = {tag.strip('\n').strip(' ') for tag in page_tags.split(',')}
-                date = file_content.readline()[6:]
-                short = file_content.readline()[7:]
-                html_content = markdown(file_content.read())
-            all_tags.update(page_tags)
-            all_works.append({
-                'title': page_title.strip('\n'),
-                'html': html_content,
-                'tags': page_tags,
-                'url': "/works/" + folder
-            })
-        except:
-            print('there was a problem with', join(WORKS_PATH, folder))
+        #try:
+        work = build_content(folder, content_type='work')
+        tmp = work['tags'].split(',')
+        tmp = set(map(str.strip , tmp))
+        all_tags.update(tmp)
+        all_works.append(work)
+        #except:
+        #    print('there was a problem with', join(WORKS_PATH, folder))
     return {"list_of_works": all_works, "set_of_tags": all_tags}
+
+
+# temporary caching ... 
+ALL_WORKS = None
+def get_all_works():
+    global ALL_WORKS
+    if ALL_WORKS is None:
+        print('caching works')
+        ALL_WORKS = _get_all_works()
+    return ALL_WORKS
 
 
 def build_navigation(path):
@@ -187,7 +211,6 @@ def tag(tag):
 @app.route('/', defaults={'path': ''}, strict_slashes=False)
 @app.route('/<path:path>', strict_slashes=False)
 def page(path):
-    print('requested:', path)
     if isfile(join(PAGES_PATH, path)) and splitext(path)[1].strip('.') in ALLOWED_EXTENSIONS:
         directory, filename = split(join(PAGES_PATH, path))
         return send_from_directory(directory, filename)
@@ -200,6 +223,28 @@ def page(path):
                             backlinks = build_backlinks(path))
     except:
         return abort(404)
+
+
+@app.route('/admin', defaults={'item': ''})
+@app.route('/admin/<path:item>', methods=['POST', 'GET'])
+def admin(item):
+    if item == '':
+        all_pages = [build_content(relpath(x[0],PAGES_PATH)) for x in walk(PAGES_PATH)]
+        works = get_all_works()['list_of_works']
+        return render_template('admin_dashboard.html', all_pages=all_pages, works=works) 
+    if item.startswith('works'):
+        item_type = 'work'
+    else:
+        item_type = 'page'
+    if request.method == 'POST':
+        #try:
+        content = {i[0]: i[1][0] for i in dict(request.form).items()}
+        content['tags'] = set(content['tags'].split(','))
+        set_content(path=item, content=content, content_type=item_type, new_path=None)
+        #except:
+        #    return str(content)
+    # return str(build_content(item))
+    return render_template('admin_edit.html', content=build_content(item, content_type=item_type))
 
 
 if __name__ == '__main__':
