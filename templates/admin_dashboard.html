@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="de">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>WORKS</title>
+        <link rel="stylesheet" href="{{ url_for('static', filename='normalize.css') }}">
+        <link rel="stylesheet" href="{{ url_for('static', filename='kiss.css') }}">
+        <link rel="shortcut icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+        <style>
+            body {
+                margin: 0.5rem;
+            }
+        </style>
+    </head>
+
+    <body>
+        <div style="max-width: 40rem; margin: auto;">
+            {% for p in all_pages %}
+                <h2>
+                    <a href="/admin{{ p.url }}">{{ p.path }}</a>
+                </h2>
+            {% endfor %}
+            <div style="clear: both;"></div>
+            <hr>
+            <div style="clear: both;"></div>
+            <br>
+            {% for work in works %}
+                <a href="/admin{{ work.url }}">
+                    <h2>
+                        {{ work.title}}                        
+                    </h2>
+                </a>
+            {% endfor %}
+        </div>
+    </body>
+</html>
