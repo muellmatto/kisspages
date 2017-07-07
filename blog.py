@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 
 from configparser import ConfigParser
+from json import dumps as to_json, loads as from_json
 from os import listdir, walk
 from os.path import realpath, relpath, isdir, isfile, dirname, join, splitext, split
 from sys import exit
 
 from flask import render_template, Flask, send_from_directory, abort, redirect, request, url_for
 import markdown
+from redis import Redis
+
 # -----------------------------------------------------
 
 app = Flask(__name__)
@@ -37,6 +40,12 @@ try:
     KISS_PORT = int(kiss_config['KISS']['port'])
     ALLOWED_EXTENSIONS = set(map(str.strip, kiss_config['KISS']['allowed_extensions'].split(',')))
     ALLOWED_EXTENSIONS.discard('')
+    redis_db_number = int(kiss_config['REDIS']['database'])
+    if kiss_config['REDIS']['unixsocket'].upper() == 'TRUE':
+        socket_path = kiss_config['REDIS']['SOCKETFILE']
+    else:
+        socket_path = None
+    ALL_CONTENT = Redis(charset="utf-8", decode_responses=True ,db=redis_db_number, unix_socket_path=socket_path)
 except:
     print('please check configfile: ', KISS_CONFIG_PATH)
     exit(1)
@@ -70,18 +79,18 @@ def _build_content(path, content_type='page'):
     return {'title': page_title, 'html': html_content, 'tags': page_tags, 'date': date, 'short': short, 'url': url, 'path': path, 'markdown_content': markdown_content}
 
 
-# temporary caching ... 
-ALL_CONTENT = {}
 def build_content(path, content_type='page'):
     global ALL_CONTENT
+    redis_key = join(content_type, path)
     if not path in ALL_CONTENT:
-        print('caching', path)
-        ALL_CONTENT[path] = _build_content(path, content_type)
+        print('caching', redis_key)
+        ALL_CONTENT[redis_key] = to_json(_build_content(path, content_type))
     else:
-        print('from cache:', path)
-    return ALL_CONTENT[path]
+        print('from cache:', redis_key)
+    return from_json(ALL_CONTENT[redis_key])
 
 def set_content(path, content, content_type='page', new_path=None):
+    redis_key = join(content_type, path)
     if content_type == 'page':
         PARENT_PATH = PAGES_PATH
     elif content_type == 'work':
@@ -95,7 +104,7 @@ def set_content(path, content, content_type='page', new_path=None):
         file_content.writelines(content['markdown'])
     # temp hack until pyinotify...:
     global ALL_CONTENT
-    ALL_CONTENT.pop(path)
+    ALL_CONTENT.delete(redis_key)
 
 
 def _get_all_works():
@@ -106,17 +115,16 @@ def _get_all_works():
     all_works = []
     all_tags = set()
     for folder in sorted(listdir(WORKS_PATH)):
-        #try:
+        redis_key = join('work', folder)
         work = build_content(folder, content_type='work')
         tmp = work['tags'].split(',')
         tmp = set(map(str.strip , tmp))
         all_tags.update(tmp)
         all_works.append(work)
-        #except:
-        #    print('there was a problem with', join(WORKS_PATH, folder))
     return {"list_of_works": all_works, "set_of_tags": all_tags}
 
-
+# new redis key : list of folders in worksdir
+#
 # temporary caching ... 
 ALL_WORKS = None
 def get_all_works():
