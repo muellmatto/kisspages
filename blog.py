@@ -55,6 +55,7 @@ except:
 # page and work functions
 # -----------------------------------------------------
 
+
 def _build_content(path, content_type='page'):
     '''
     returns a dict with keys:
@@ -67,7 +68,6 @@ def _build_content(path, content_type='page'):
         PARENT_PATH = WORKS_PATH
         url = join('/works', path)
     file_path = join(PARENT_PATH, path, 'index.txt')
-    print(file_path)
     with open(file_path) as file_content:
         page_title = file_content.readline()[7:]
         page_tags = file_content.readline()[6:]
@@ -79,15 +79,19 @@ def _build_content(path, content_type='page'):
     return {'title': page_title, 'html': html_content, 'tags': page_tags, 'date': date, 'short': short, 'url': url, 'path': path, 'markdown_content': markdown_content}
 
 
-def build_content(path, content_type='page'):
-    global ALL_CONTENT
+def build_content(path, redis_object=None, content_type='page'):
+    if redis_object is None:
+        global ALL_CONTENT
+        redis_object = ALL_CONTENT
     redis_key = join(content_type, path)
-    if not path in ALL_CONTENT:
+    print('++++++++build_content -> redis_key', redis_key)
+    if not redis_key in redis_object:
         print('caching', redis_key)
-        ALL_CONTENT[redis_key] = to_json(_build_content(path, content_type))
+        redis_object[redis_key] = to_json(_build_content(path, content_type))
     else:
         print('from cache:', redis_key)
-    return from_json(ALL_CONTENT[redis_key])
+    return from_json(redis_object[redis_key])
+
 
 def set_content(path, content, content_type='page', new_path=None):
     redis_key = join(content_type, path)
@@ -116,7 +120,7 @@ def _get_all_works():
     all_tags = set()
     for folder in sorted(listdir(WORKS_PATH)):
         redis_key = join('work', folder)
-        work = build_content(folder, content_type='work')
+        work = build_content(path=folder, content_type='work')
         tmp = work['tags'].split(',')
         tmp = set(map(str.strip , tmp))
         all_tags.update(tmp)
@@ -135,6 +139,7 @@ def get_all_works():
     return ALL_WORKS
 
 
+#TODO navigation from redis-cache
 def build_navigation(path):
     ''' 
     Returns a list of dicts, with keys "url" and "name"
@@ -173,6 +178,18 @@ def build_backlinks(path):
     return backlinks
 
 
+def _build_redis_cache(redis_object):
+    redis_object.flushdb()
+    def read_all_files(redis_object, path, content_type):
+        for folder, _, files in walk(path):
+            if "index.txt" in files:
+                _ = build_content(path=relpath(folder,path).rstrip('.'), redis_object=redis_object, content_type=content_type)
+    read_all_files(redis_object, PAGES_PATH, 'page')
+    read_all_files(redis_object, WORKS_PATH, 'work')
+
+
+_build_redis_cache(ALL_CONTENT)
+
 # -----------------------------------------------------
 # flask routes
 # -----------------------------------------------------
@@ -191,7 +208,7 @@ def work(work):
                             path = work,
                             backlinks = build_backlinks(''))
     return render_template('work.html',
-                        content = build_content(work, content_type='work'),
+                        content = build_content(path=work, content_type='work'),
                         navigation = build_navigation(''),
                         subnavigation = subnavigation,
                         path = work,
@@ -252,7 +269,7 @@ def admin(item):
         #except:
         #    return str(content)
     # return str(build_content(item))
-    return render_template('admin_edit.html', content=build_content(item, content_type=item_type))
+    return render_template('admin_edit.html', content=build_content(path=item, content_type=item_type))
 
 
 if __name__ == '__main__':
